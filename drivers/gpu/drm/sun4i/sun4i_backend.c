@@ -510,6 +510,7 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 		struct sun4i_layer_state *layer_state =
 			state_to_sun4i_layer_state(plane_state);
 		struct drm_framebuffer *fb = plane_state->fb;
+		struct drm_format_name_buf format_name;
 
 		if (!sun4i_backend_plane_is_supported(plane_state,
 						      &layer_state->uses_frontend))
@@ -526,8 +527,9 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 			}
 		}
 
-		DRM_DEBUG_DRIVER("Plane FB format is %p4cc\n",
-				 &fb->format->format);
+		DRM_DEBUG_DRIVER("Plane FB format is %s\n",
+				 drm_get_format_name(fb->format->format,
+						     &format_name));
 		if (fb->format->has_alpha || (plane_state->alpha != DRM_BLEND_ALPHA_OPAQUE))
 			num_alpha_planes++;
 
@@ -782,6 +784,7 @@ static int sun4i_backend_bind(struct device *dev, struct device *master,
 	struct sun4i_drv *drv = drm->dev_private;
 	struct sun4i_backend *backend;
 	const struct sun4i_backend_quirks *quirks;
+	struct resource *res;
 	void __iomem *regs;
 	int i, ret;
 
@@ -814,7 +817,8 @@ static int sun4i_backend_bind(struct device *dev, struct device *master,
 	if (IS_ERR(backend->frontend))
 		dev_warn(dev, "Couldn't find matching frontend, frontend features disabled\n");
 
-	regs = devm_platform_ioremap_resource(pdev, 0);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs))
 		return PTR_ERR(regs);
 
@@ -971,6 +975,9 @@ static int sun4i_backend_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct sun4i_backend_quirks suniv_backend_quirks = {
+};
+
 static const struct sun4i_backend_quirks sun4i_backend_quirks = {
 	.needs_output_muxing = true,
 };
@@ -993,6 +1000,10 @@ static const struct sun4i_backend_quirks sun9i_backend_quirks = {
 };
 
 static const struct of_device_id sun4i_backend_of_table[] = {
+	{
+		.compatible = "allwinner,suniv-f1c100s-display-backend",
+		.data = &suniv_backend_quirks,
+	},
 	{
 		.compatible = "allwinner,sun4i-a10-display-backend",
 		.data = &sun4i_backend_quirks,
